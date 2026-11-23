@@ -21,7 +21,7 @@ vi.mock("@/lib/api", () => {
     ApiError,
     api: vi.fn(async (path: string, opts: { method?: string; body?: { run_id: string } } = {}) => {
       h.calls.push({ path, method: opts.method, body: opts.body })
-      if (path === "/student/code/runtime") return h.runtime
+      if (path === "/student/code/runtime") return structuredClone(h.runtime)
       if (opts.method === "DELETE") { h.pending?.({ ...(h.reply(h.calls.find((c) => c.method === "POST")!.body as { run_id: string }) as object), status: "cancelled", stdout: "" }); return undefined }
       if (h.hold) return new Promise((resolve) => { h.pending = resolve })
       return h.reply(opts.body!)
@@ -151,8 +151,11 @@ describe("RunnableCodeBlock", () => {
       await waitFor(() => expect(h.calls.filter((c) => c.path === "/student/code/runtime")).toHaveLength(1))
       expect(screen.queryByRole("button", { name: "Run code" })).toBeNull()
       h.runtime.enabled = true
-      await act(async () => { await vi.advanceTimersByTimeAsync(31_000) })
-      expect(await screen.findByRole("button", { name: "Run code" })).toBeTruthy()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(31_000)
+        await vi.runAllTimersAsync()
+      })
+      expect(screen.getByRole("button", { name: "Run code" })).toBeTruthy()
     } finally {
       vi.useRealTimers()
     }
